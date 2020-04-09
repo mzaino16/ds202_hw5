@@ -1,0 +1,106 @@
+---
+title: 'DS 202 - Homework #5'
+author: "Mike Zaino mzaino16"
+date: "4/10/2020"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## Liquor Sales in Iowa
+
+This dataset https://data.iowa.gov/Sales-Distribution/2019-Iowa-Liquor-Sales/38x4-vs5h contains the spirits purchase information of Iowa Class “E” liquor licensees by product and date of purchase for 2019. The dataset can be used to analyze total spirits sales in Iowa of individual products at the store level.
+
+**Submission instructions**: Create a folder named `ds202_hw5`, and name the RMarkDown file including your solutions `hw5.Rmd` under this folder. For the submission, create a GitHub repository named `ds202_hw5` under your GitHub account, and push both `hw5.Rmd` and the knitted `hw5.html` before the deadline. I will assume you use the same GitHub username as for your HW4 submission. The latest version of your homework appearing on GitHub before the deadline is graded. *It is crucial to follow the exact folder structure and file names*, so that your homework can be reproduced and graded by an automated script. This homework is **due on April 10** by 11:59 pm.
+
+1. The complete dataset is too large. Download and import the alcohol sales data for Ames only: 
+
+  a. Go to https://data.iowa.gov/Sales-Distribution/2019-Iowa-Liquor-Sales/38x4-vs5h
+  b. Click Filter -- Filter -- Go advanced now
+  c. Add a New Filter Condition: City is Ames.
+  d. Export -- CSV -- Download
+  e. Use `readr::read_csv` to import.
+  
+```{r}
+sales <- readr::read_csv("/Users/TheemikezanilyMac/Documents/School/DS 202/ds202_hw5/2019_Iowa_Liquor_Sales.csv")
+```
+  
+2. Data cleaning: 
+  a. extract geographic latitude and longitude from the variable `Store Location`
+
+```{r}
+sales2 <- sales %>% 
+  separate(`Store Location`, c('Point', 'long', 'lat'), sep=' ') %>% 
+  separate(long, c('extra', 'long'), sep = '\\(') %>% 
+  separate(lat, c('lat', 'extra2'), sep = '\\)') %>% 
+  select(-extra, -extra2, -Point)
+```
+  
+  b. make sure the variables are in the correct type, by converting incorrect variable types.
+  
+```{r}
+sales3 <- sales2 %>% 
+  mutate(long = as.numeric(long),
+         lat = as.numeric(lat))
+```
+  
+  c. extract year, month and day from the variable `Date` as separate columns.
+  
+```{r}
+sales4 <- sales3 %>% 
+  separate(Date, into = c('Month','Day','Year'), sep = '/') %>% 
+  mutate(Month = as.integer(Month),
+         Day = as.integer(Day),
+         Year = as.integer(Year))
+```
+  
+3. First overview:
+  a. Plot a scatterplot of lat and long of store locations. 
+  
+```{r}
+sales4 %>% 
+  ggplot(aes(x=long, y=lat))+geom_point(na.rm=TRUE)+theme_bw()
+```
+  
+  b. Provide a visual breakdown of the liquor category (by `Category Name`). Include volume sold in the breakdown.
+  
+```{r}
+sales4 %>% 
+  group_by(`Category Name`) %>% 
+  ggplot(aes(x=`Category Name`, y=`Volume Sold (Gallons)`))+geom_boxplot()+coord_flip()+theme_bw()
+```
+  
+4. Find the daily sales liquor sales in Ames in 2019. Summarize the number of sales, volume of liquor sold, and amount of money spent.
+
+```{r}
+sales5 <- sales4 %>% 
+  group_by(Year, Month, Day) %>% 
+  summarise(`Total Sales`=n(),
+            `Volume`  = sum(`Volume Sold (Gallons)`),
+            `Money Spent` = sum(`Sale (Dollars)`))
+sales5 %>% 
+  head()
+```
+
+5. Plot volume sold by day (use a scatterplot of volume by day and facet by month). Discover trends with the help of `geom_smooth`. Describe any patterns.
+
+```{r}
+sales5 %>% 
+  ggplot(aes(x=Day, y=Volume))+geom_point()+geom_smooth(se = FALSE)+facet_wrap(~Month)+theme_bw()
+```
+
+6. Find the dates for ISU football home games in Fall 2019. Can you see a pattern? 
+
+```{r}
+sales5 %>% 
+  filter(Month %in% c(8,9,10,11)) %>% 
+  ggplot(aes(x=Day, y=Volume))+geom_point()+geom_smooth(se = FALSE)+facet_wrap(~Month)+theme_bw()
+```
+
+The dates for the football season were 8/31, 9/14, 9/21, 9/28, 10/5, 10/12, 10/19, 10/26, 11/9, 11/16, 11/23, and 11/30. The pattern shows that whenever there is a football game, the volume of alcohol sold increases. 
+
+Note: your submission is supposed to be fully reproducible, i.e. the TA and I will 'knit' your submission in RStudio. 
